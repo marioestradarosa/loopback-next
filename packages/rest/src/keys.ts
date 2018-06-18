@@ -50,6 +50,7 @@ export namespace RestBindings {
    * Binding key for setting and injecting the protocol of RestServer
    */
   export const PROTOCOL = BindingKey.create<'http' | 'https'>('rest.protocol');
+
   /**
    * Internal binding key for http-handler
    */

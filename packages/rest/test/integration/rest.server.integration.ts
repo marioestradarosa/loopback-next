@@ -6,7 +6,12 @@
 import {Application, ApplicationConfig} from '@loopback/core';
 import {supertest, expect, createClientForHandler} from '@loopback/testlab';
 import {Route, RestBindings, RestServer, RestComponent} from '../..';
+import {IncomingMessage} from 'http';
+import * as https from 'https';
 import * as yaml from 'js-yaml';
+import * as path from 'path';
+import * as fs from 'fs';
+import * as url from 'url';
 
 describe('RestServer (integration)', () => {
   it('exports url property', async () => {
@@ -214,13 +219,13 @@ servers:
       '/swagger-ui',
     );
     await server.get(RestBindings.PORT);
-    const url = new RegExp(
+    const urlString = new RegExp(
       [
         'https://loopback.io/api-explorer',
         '\\?url=http://\\d+.\\d+.\\d+.\\d+:\\d+/openapi.json',
       ].join(''),
     );
-    expect(response.get('Location')).match(url);
+    expect(response.get('Location')).match(urlString);
     expect(response.get('Access-Control-Allow-Origin')).to.equal('*');
     expect(response.get('Access-Control-Allow-Credentials')).to.equal('true');
   });
@@ -245,20 +250,98 @@ servers:
       '/swagger-ui',
     );
     await server.get(RestBindings.PORT);
-    const url = new RegExp(
+    const urlString = new RegExp(
       [
         'http://petstore.swagger.io',
         '\\?url=http://\\d+.\\d+.\\d+.\\d+:\\d+/openapi.json',
       ].join(''),
     );
-    expect(response.get('Location')).match(url);
+    expect(response.get('Location')).match(urlString);
     expect(response.get('Access-Control-Allow-Origin')).to.equal('*');
     expect(response.get('Access-Control-Allow-Credentials')).to.equal('true');
+  });
+
+  it('supports HTTPS protocol with key and certificate files', async () => {
+    const keyPath = path.join(__dirname, 'key.pem');
+    const certPath = path.join(__dirname, 'cert.pem');
+    const server = await givenAServer({
+      rest: {
+        port: 0,
+        protocol: 'https',
+        key: fs.readFileSync(keyPath),
+        cert: fs.readFileSync(certPath),
+      },
+    });
+    server.handler(({response}, sequence) => {
+      response.end();
+    });
+    await server.start();
+    const host = server.getSync(RestBindings.HOST);
+    const port = server.getSync(RestBindings.PORT);
+    const res = await httpsGetAsync(server.url!);
+    expect(res.statusCode).to.equal(200);
+  });
+
+  it('supports HTTPS protocol with a pfx file', async () => {
+    const pfxPath = path.join(__dirname, 'pfx.pfx');
+    const server = await givenAServer({
+      rest: {
+        port: 0,
+        protocol: 'https',
+        pfx: fs.readFileSync(pfxPath),
+        passphrase: 'loopback4',
+      },
+    });
+    server.handler(({response}, sequence) => {
+      response.end();
+    });
+    await server.start();
+    const host = server.getSync(RestBindings.HOST);
+    const port = server.getSync(RestBindings.PORT);
+    const res = await httpsGetAsync(server.url!);
+    expect(res.statusCode).to.equal(200);
+  });
+
+  it('handles IPv6 loopback address in HTTPS', async () => {
+    const keyPath = path.join(__dirname, 'key.pem');
+    const certPath = path.join(__dirname, 'cert.pem');
+    const server = await givenAServer({
+      rest: {
+        port: 0,
+        host: '::1',
+        protocol: 'https',
+        key: fs.readFileSync(keyPath),
+        cert: fs.readFileSync(certPath),
+      },
+    });
+    server.handler(({response}, sequence) => {
+      response.end();
+    });
+    await server.start();
+    const host = server.getSync(RestBindings.HOST);
+    const port = server.getSync(RestBindings.PORT);
+    const res = await httpsGetAsync(server.url!);
+    expect(res.statusCode).to.equal(200);
   });
 
   async function givenAServer(options?: ApplicationConfig) {
     const app = new Application(options);
     app.component(RestComponent);
     return await app.getServer(RestServer);
+  }
+
+  function httpsGetAsync(urlString: string): Promise<IncomingMessage> {
+    const agentOptions = {
+      agent: new https.Agent({
+        rejectUnauthorized: false,
+      }),
+    };
+
+    const urlOptions = url.parse(urlString);
+    const options = {...agentOptions, ...urlOptions};
+
+    return new Promise((resolve, reject) => {
+      https.get(options, resolve).on('error', reject);
+    });
   }
 });

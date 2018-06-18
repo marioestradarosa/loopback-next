@@ -16,6 +16,7 @@ import {
   ControllerFactory,
 } from './router/routing-table';
 import {OperationObject, OpenApiSpec} from '@loopback/openapi-v3-types';
+import * as url from 'url';
 
 export const ERR_NO_MULTI_SERVER = format(
   'RestApplication does not support multiple servers!',

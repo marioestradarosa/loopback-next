@@ -4,22 +4,28 @@
 // License text available at https://opensource.org/licenses/MIT
 
 import {createServer, Server, ServerRequest, ServerResponse} from 'http';
+import {createServer as createHttpsServer, Server as HttpsServer} from 'https';
+import * as https from 'https';
 import {AddressInfo} from 'net';
+
 import * as pEvent from 'p-event';
 
-export type HttpRequestListener = (
-  req: ServerRequest,
-  res: ServerResponse,
-) => void;
+export type RequestListener = (req: ServerRequest, res: ServerResponse) => void;
 
-/**
- * Object for specifyig the HTTP / HTTPS server options
- */
-export type HttpServerOptions = {
-  port?: number;
+export interface ListenerOptions {
   host?: string;
-  protocol?: HttpProtocol;
-};
+  port?: number;
+}
+
+export interface HttpOptions extends ListenerOptions {
+  protocol: 'http' | undefined;
+}
+
+export interface HttpsOptions extends ListenerOptions, https.ServerOptions {
+  protocol: 'https';
+}
+
+export type HttpServerOptions = HttpOptions | HttpsOptions;
 
 export type HttpProtocol = 'http' | 'https'; // Will be extended to `http2` in the future
 
@@ -35,42 +41,55 @@ export class HttpServer {
   private _listening: boolean = false;
   private _protocol: HttpProtocol;
   private _address: AddressInfo;
-  private httpRequestListener: HttpRequestListener;
-  private httpServer: Server;
+  private requestListener: RequestListener;
+  private server: Server | HttpsServer;
+  private serverOptions?: HttpServerOptions;
 
   /**
-   * @param httpServerOptions
-   * @param httpRequestListener
+   * @param requestListener
+   * @param serverOptions
    */
   constructor(
-    httpRequestListener: HttpRequestListener,
-    httpServerOptions?: HttpServerOptions,
+    requestListener: RequestListener,
+    serverOptions?: HttpServerOptions,
   ) {
-    this.httpRequestListener = httpRequestListener;
-    if (!httpServerOptions) httpServerOptions = {};
-    this._port = httpServerOptions.port || 0;
-    this._host = httpServerOptions.host || undefined;
-    this._protocol = httpServerOptions.protocol || 'http';
+    this.requestListener = requestListener;
+    this.serverOptions = serverOptions;
+    this._port = serverOptions ? serverOptions.port || 0 : 0;
+    this._host = serverOptions ? serverOptions.host : undefined;
+    this._protocol = serverOptions ? serverOptions.protocol || 'http' : 'http';
   }
 
   /**
    * Starts the HTTP / HTTPS server
    */
   public async start() {
-    this.httpServer = createServer(this.httpRequestListener);
-    this.httpServer.listen(this._port, this._host);
-    await pEvent(this.httpServer, 'listening');
-    this._listening = true;
-    this._address = this.httpServer.address() as AddressInfo;
+    if (this._protocol === 'https') {
+      const httpsOptions = Object.assign({}, this.serverOptions);
+      this.server = createHttpsServer(
+        httpsOptions as https.ServerOptions,
+        this.requestListener,
+      );
+    } else {
+      this.server = createServer(this.requestListener);
+    }
+    this.server.listen(this._port, this._host);
+    try {
+      await pEvent(this.server, 'listening');
+      this._listening = true;
+      this._address = this.server.address() as AddressInfo;
+    } catch (e) {
+      return Promise.reject(e);
+    }
   }
 
   /**
    * Stops the HTTP / HTTPS server
    */
   public async stop() {
-    if (this.httpServer) {
-      this.httpServer.close();
-      await pEvent(this.httpServer, 'close');
+    if (this.server) {
+      this.server.close();
+      await pEvent(this.server, 'close');
       this._listening = false;
     }
   }

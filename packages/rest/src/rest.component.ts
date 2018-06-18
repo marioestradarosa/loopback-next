@@ -52,6 +52,4 @@ export class RestComponent implements Component {
   }
 }
 
-export interface RestComponentConfig extends RestServerConfig {
-  // TODO(kevin): Extend this interface def to include multiple servers?
-}
+export type RestComponentConfig = RestServerConfig;
