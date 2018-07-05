@@ -1,0 +1,65 @@
+{
+  "name": "@loopback/example-todo-intermediate",
+  "version": "0.12.5",
+  "description": "Tutorial example on how to build an application with LoopBack 4.",
+  "main": "index.js",
+  "engines": {
+    "node": ">=8"
+  },
+  "scripts": {
+    "build": "npm run build:dist8 && npm run build:dist10",
+    "build:apidocs": "lb-apidocs",
+    "build:current": "lb-tsc",
+    "build:dist8": "lb-tsc es2017",
+    "build:dist10": "lb-tsc es2018",
+    "build:watch": "lb-tsc --watch",
+    "clean": "lb-clean *example-todo*.tgz dist* package api-docs",
+    "lint": "npm run prettier:check && npm run tslint",
+    "lint:fix": "npm run prettier:fix && npm run tslint:fix",
+    "prettier:cli": "lb-prettier \"**/*.ts\"",
+    "prettier:check": "npm run prettier:cli -- -l",
+    "prettier:fix": "npm run prettier:cli -- --write",
+    "tslint": "lb-tslint",
+    "tslint:fix": "npm run tslint -- --fix",
+    "pretest": "npm run build:current",
+    "test": "lb-mocha \"DIST/test/*/**/*.js\"",
+    "test:dev": "lb-mocha --allow-console-logs DIST/test/**/*.js && npm run posttest",
+    "verify": "npm pack && tar xf loopback-todo*.tgz && tree package && npm run clean",
+    "prestart": "npm run build:current",
+    "start": "node ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/strongloop/loopback-next.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@loopback/boot": "^0.11.5",
+    "@loopback/context": "^0.11.9",
+    "@loopback/core": "^0.10.1",
+    "@loopback/dist-util": "^0.3.3",
+    "@loopback/openapi-v3": "^0.10.12",
+    "@loopback/openapi-v3-types": "^0.7.10",
+    "@loopback/repository": "^0.12.1",
+    "@loopback/rest": "^0.15.1",
+    "@loopback/service-proxy": "^0.5.12",
+    "loopback-connector-rest": "^3.1.1"
+  },
+  "devDependencies": {
+    "@loopback/build": "^0.6.11",
+    "@loopback/http-caching-proxy": "^0.2.6",
+    "@loopback/testlab": "^0.10.10",
+    "@types/lodash": "^4.14.109",
+    "@types/node": "^10.1.1",
+    "lodash": "^4.17.10"
+  },
+  "keywords": [
+    "loopback",
+    "LoopBack",
+    "example",
+    "tutorial"
+  ]
+}
