@@ -40,6 +40,8 @@ export class Todo extends Entity {
   })
   remindAtGeo: string; // latitude,longitude
 
+  @property() todoListId: number;
+
   getId() {
     return this.id;
   }
