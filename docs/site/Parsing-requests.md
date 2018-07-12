@@ -27,7 +27,9 @@ The code below defines a typical endpoint by decorating a controller method with
 rest decorators.
 
 ```ts
-class TodoController() {
+class TodoController {
+  constructor(@repository(TodoRepository) protected todoRepo: TodoRepository) {}
+
   @put('/todos/{id}')
   async replaceTodo(
     @param.path.number('id') id: number,
@@ -39,27 +41,28 @@ class TodoController() {
 ```
 
 An operation specification will be generated in-memory to describe it, and raw
-datas are parsed from request according to the specification. For example the
-first parameter is from source `path`, then its value will be parsed from a
-request's path.
+data are parsed from request according to the specification. In the example
+above, the first parameter is from source `path`, then its value will be parsed
+from a request's path.
 
-_See [controller](Controller.md) for more details of defining an endpoint._
+{% include note.html title="Controller documentation" content="See [controller](Controller.md) for more details of defining an endpoint." %}
 
-_See
+{% include note.html title="OpenAPI operation object" content="See
 [OpenAPI operation object](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/3.0.1.md#operationObject)
-to know more about its structure._
+to know more about its structure." %}
 
 ### Coercion
 
-The parameters parsed from path, header, query of a http request are always in
-the string format. Therefore when invoking a controller function, a parameter
-need to be converted to its corresponding JavaScript runtime type, which is
-inferred from its parameter specification.
+The parameters parsed from path, header, and query of a http request are always
+in the string format when using the `http` module in Node.js to handle requests.
+Therefore when invoking a controller function, a parameter need to be converted
+to its corresponding JavaScript runtime type, which is inferred from its
+parameter specification.
 
-Give the example operation `replaceTodo` in section
-[parsing raw data](#parsing-raw-data), which takes in a number `id` as the first
-input, coercion means users don't need to do a type conversion by themselves in
-the controller function like below:
+Take the example operation `replaceTodo` in section
+[parsing raw data](#parsing-raw-data) which takes in a number `id` as the first
+input. Without coercion,`id` would have to be manually cast into the number type
+before it can be used as seen below:
 
 ```ts
 @put('/todos/{id}')
@@ -67,7 +70,8 @@ async replaceTodo(
   @param.path.number('id') id: number,
   @requestBody() todo: Todo,
 ): Promise<boolean> {
-  // NO need to do the "string to number" convertion as below
+  // NO need to do the "string to number" convertion now,
+  // coercion automatically handles it for you.
   id = +id;
   return await this.todoRepo.replaceById(id, todo);
 }
@@ -81,13 +85,14 @@ use OpenAPI specification as the reference to infer the validation rules.
 #### Parameters
 
 We have the data type safety check for the parameters parsed from header, path,
-query. For example, if a parameter should be an integer, then a number with
-decimal like "1.23" will be rejected.
+and query. For example, if a parameter should be an integer, then a number with
+decimal like "1.23" would be rejected.
 
 You can specify a parameter's type by calling shortcut decorators of `@param`
 like `@param.query.integer()`. A list of available shortcuts can be found in the
 [api documents](https://apidocs.strongloop.com/@loopback%2fdocs/openapi-v3.html#param).
-And please check [parameter decorators](Decorators.md#parameter-decorator) for
+Check out the section on
+[parameter decorators](Decorators.md#parameter-decorator) for instructions on
 how to decorate the controller parameter.
 
 Here are our default validation rules for each type:
@@ -109,10 +114,10 @@ specification. We use module [AJV](https://github.com/epoberezkin/ajv) to
 perform the validation, which validates data with a JSON schema generated from
 the OpenAPI schema specification.
 
-Take operation `replaceTodo` as an instance again:
+Take again the operation replaceTodo for instance:
 
 ```ts
-import {Todo} from './models/todo-model.ts';
+import {Todo} from './models';
 
 ...
   @put('/todos/{id}')
@@ -129,15 +134,15 @@ The request body specification is defined by applying `@requestBody()` to
 argument `todo`, and the schema specification inside it is inferred from its
 type `Todo`. The type is exported from a `Todo` model.
 
-_See [model](Model.md) to know more details about how to decorate a model class_
+{% include note.html title="Model documentation" content="See [model](Model.md) to know more details about how to decorate a model class" %}
 
-When the `PUT` method `/todo/{id}` get called, the `todo` instance from request
-body will be validated with a well defined specification.
+When the `PUT` method `/todo/{id}` gets called, the `todo` instance from the
+request body will be validated with a well defined specification.
 
-Section [RequestBody Decorator](Decorators.md#requestbody-decorator) has a very
-detailed explanation of the various ways to provide a request body
-specification. It would be a redundant to repeat it here. So make sure you read
-that section to understand how to use `@requestBody()`.
+Section on [RequestBody Decorator](Decorators.md#requestbody-decorator) has a
+very detailed explanation of the various ways to provide a request body
+specification. Make sure you read that section to understand how to use
+`@requestBody()`.
 
 A few tips worth mentioning:
 
@@ -150,10 +155,48 @@ A few tips worth mentioning:
 
 #### Localizing errors
 
-A body data may contain multiple invalid things, like missing required field,
+A body data may break multiple validation rules, like missing required fields,
 data in a wrong type, data that exceeds the maximum length, etc...The validation
 errors are returned in batch mode, and user can find all of them in
 `error.details`, which describes errors in a machine-readable way.
 
-_Note: I am adding more stuff after PR
-https://github.com/strongloop/loopback-next/pull/1511 lands_
+Each element in the `error.details` array reports one error. It contains 4
+attributes:
+
+- `path`: The path to the invalid field.
+- `code`: A single word code represents the error's type.
+- `message`: A human readable description of the error.
+- `info`: Some additional details that the 3 attributes above don't cover.
+
+In most cases `path` shows which field in the body data is invalid. For example,
+if an object schema's `id` field should be a string, while the data in body has
+it as a number: `{id: 1, name: 'Foo'}`. Then the error entry is:
+
+```ts
+{
+  path: '.id',
+  code: 'type',
+  message: 'should be string',
+  info: {type: 'boolean'},
+}
+```
+
+And in this case the error code is `type`. A reference of all the possible code
+could be found in
+[ajv validation error keywords(codes)](https://github.com/epoberezkin/ajv/blob/master/KEYWORDS.md).
+
+In some exception scenarios, like a required field is missing, the `path` is
+empty, but the field location is easy to find in `message` and `info`. For
+example, `id` is a required field while it's missing in a request body:
+`{name: 'Foo'}`, the error entry will be:
+
+```ts
+{
+  // `path` is empty
+  path: '',
+  code: 'required',
+  message: "should have required property 'id'",
+  // you can parse the missing field from `info.missingProperty`
+  info: {missingProperty: 'id'},
+},
+```
