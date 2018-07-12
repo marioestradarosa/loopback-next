@@ -19,7 +19,7 @@ describe('HttpServer (integration)', () => {
   it('formats IPv6 url correctly', async () => {
     server = new HttpServer(dummyRequestHandler, {
       host: '::1',
-    } as HttpOptions);
+    });
     await server.start();
     expect(server.address!.family).to.equal('IPv6');
     const response = await getAsync(server.url);
@@ -46,7 +46,7 @@ describe('HttpServer (integration)', () => {
   });
 
   it('exports original port', async () => {
-    server = new HttpServer(dummyRequestHandler, {port: 0} as HttpOptions);
+    server = new HttpServer(dummyRequestHandler, {port: 0});
     expect(server)
       .to.have.property('port')
       .which.is.equal(0);
@@ -138,7 +138,7 @@ describe('HttpServer (integration)', () => {
     const port = server.port;
     const anotherServer = new HttpServer(dummyRequestHandler, {
       port: port,
-    } as HttpOptions);
+    });
     expect(anotherServer.start()).to.be.rejectedWith(/EADDRINUSE/);
   });
 
@@ -159,7 +159,7 @@ describe('HttpServer (integration)', () => {
   it('handles IPv6 loopback address in HTTPS', async () => {
     const httpsServer: HttpServer = givenHttpsServer({
       host: '::1',
-    } as HttpsOptions);
+    });
     await httpsServer.start();
     expect(httpsServer.address!.family).to.equal('IPv6');
     const response = await httpsGetAsync(httpsServer.url);
@@ -203,14 +203,12 @@ describe('HttpServer (integration)', () => {
   }
 
   function httpsGetAsync(urlString: string): Promise<IncomingMessage> {
-    const agentOptions = {
-      agent: new https.Agent({
-        rejectUnauthorized: false,
-      }),
-    };
+    const agent = new https.Agent({
+      rejectUnauthorized: false,
+    });
 
     const urlOptions = url.parse(urlString);
-    const options = {...agentOptions, ...urlOptions};
+    const options = {agent, ...urlOptions};
 
     return new Promise((resolve, reject) => {
       https.get(options, resolve).on('error', reject);

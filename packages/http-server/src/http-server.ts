@@ -3,8 +3,8 @@
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
 
-import {createServer, Server, ServerRequest, ServerResponse} from 'http';
-import {createServer as createHttpsServer, Server as HttpsServer} from 'https';
+import {ServerRequest, ServerResponse} from 'http';
+import * as http from 'http';
 import * as https from 'https';
 import {AddressInfo} from 'net';
 
@@ -18,7 +18,7 @@ export interface ListenerOptions {
 }
 
 export interface HttpOptions extends ListenerOptions {
-  protocol: 'http' | undefined;
+  protocol?: 'http';
 }
 
 export interface HttpsOptions extends ListenerOptions, https.ServerOptions {
@@ -42,7 +42,7 @@ export class HttpServer {
   private _protocol: HttpProtocol;
   private _address: AddressInfo;
   private requestListener: RequestListener;
-  private server: Server | HttpsServer;
+  private server: http.Server | https.Server;
   private serverOptions?: HttpServerOptions;
 
   /**
@@ -65,22 +65,17 @@ export class HttpServer {
    */
   public async start() {
     if (this._protocol === 'https') {
-      const httpsOptions = Object.assign({}, this.serverOptions);
-      this.server = createHttpsServer(
-        httpsOptions as https.ServerOptions,
+      this.server = https.createServer(
+        this.serverOptions as https.ServerOptions,
         this.requestListener,
       );
     } else {
-      this.server = createServer(this.requestListener);
+      this.server = http.createServer(this.requestListener);
     }
     this.server.listen(this._port, this._host);
-    try {
-      await pEvent(this.server, 'listening');
-      this._listening = true;
-      this._address = this.server.address() as AddressInfo;
-    } catch (e) {
-      return Promise.reject(e);
-    }
+    await pEvent(this.server, 'listening');
+    this._listening = true;
+    this._address = this.server.address() as AddressInfo;
   }
 
   /**

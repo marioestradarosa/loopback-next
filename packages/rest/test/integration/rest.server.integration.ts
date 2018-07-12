@@ -6,7 +6,7 @@
 import {Application, ApplicationConfig} from '@loopback/core';
 import {supertest, expect, createClientForHandler} from '@loopback/testlab';
 import {Route, RestBindings, RestServer, RestComponent} from '../..';
-import {IncomingMessage} from 'http';
+import {IncomingMessage, ServerResponse} from 'http';
 import * as https from 'https';
 import * as yaml from 'js-yaml';
 import * as path from 'path';
@@ -16,10 +16,7 @@ import * as url from 'url';
 describe('RestServer (integration)', () => {
   it('exports url property', async () => {
     const server = await givenAServer({rest: {port: 0}});
-    server.handler(({response}, sequence) => {
-      response.write('ok');
-      response.end();
-    });
+    server.handler(dummyRequestHandler);
     expect(server.url).to.be.undefined();
     await server.start();
     expect(server)
@@ -28,7 +25,7 @@ describe('RestServer (integration)', () => {
       .match(/http|https\:\/\//);
     await supertest(server.url)
       .get('/')
-      .expect(200, 'ok');
+      .expect(200, 'Hello');
     await server.stop();
     expect(server.url).to.be.undefined();
   });
@@ -76,10 +73,7 @@ describe('RestServer (integration)', () => {
 
   it('allows cors', async () => {
     const server = await givenAServer({rest: {port: 0}});
-    server.handler(({response}, sequence) => {
-      response.write('Hello');
-      response.end();
-    });
+    server.handler(dummyRequestHandler);
 
     await createClientForHandler(server.requestHandler)
       .get('/')
@@ -90,10 +84,7 @@ describe('RestServer (integration)', () => {
 
   it('allows cors preflight', async () => {
     const server = await givenAServer({rest: {port: 0}});
-    server.handler(({response}, sequence) => {
-      response.write('Hello');
-      response.end();
-    });
+    server.handler(dummyRequestHandler);
 
     await createClientForHandler(server.requestHandler)
       .options('/')
@@ -114,7 +105,7 @@ describe('RestServer (integration)', () => {
       },
     });
 
-    server.handler(({response}, sequence) => void response.send('Hello'));
+    server.handler(dummyRequestHandler);
 
     await createClientForHandler(server.requestHandler)
       .options('/')
@@ -272,13 +263,10 @@ servers:
         cert: fs.readFileSync(certPath),
       },
     });
-    server.handler(({response}, sequence) => {
-      response.end();
-    });
+    server.handler(dummyRequestHandler);
     await server.start();
-    const host = server.getSync(RestBindings.HOST);
-    const port = server.getSync(RestBindings.PORT);
-    const res = await httpsGetAsync(server.url!);
+    const serverUrl = server.getSync(RestBindings.URL);
+    const res = await httpsGetAsync(serverUrl);
     expect(res.statusCode).to.equal(200);
   });
 
@@ -292,14 +280,12 @@ servers:
         passphrase: 'loopback4',
       },
     });
-    server.handler(({response}, sequence) => {
-      response.end();
-    });
+    server.handler(dummyRequestHandler);
     await server.start();
-    const host = server.getSync(RestBindings.HOST);
-    const port = server.getSync(RestBindings.PORT);
-    const res = await httpsGetAsync(server.url!);
+    const serverUrl = server.getSync(RestBindings.URL);
+    const res = await httpsGetAsync(serverUrl);
     expect(res.statusCode).to.equal(200);
+    await server.stop();
   });
 
   it('handles IPv6 loopback address in HTTPS', async () => {
@@ -314,14 +300,35 @@ servers:
         cert: fs.readFileSync(certPath),
       },
     });
-    server.handler(({response}, sequence) => {
-      response.end();
+    server.handler(dummyRequestHandler);
+    await server.start();
+    const serverUrl = server.getSync(RestBindings.URL);
+    const res = await httpsGetAsync(serverUrl);
+    expect(res.statusCode).to.equal(200);
+    await server.stop();
+  });
+
+  it('honors HTTPS config binding after instantiation', async () => {
+    const keyPath = path.join(__dirname, 'key.pem');
+    const certPath = path.join(__dirname, 'cert.pem');
+    const server = await givenAServer({
+      rest: {
+        port: 0,
+        host: '::1',
+        protocol: 'https',
+      },
+    });
+    server.handler(dummyRequestHandler);
+    expect(server.start()).to.be.rejected();
+    await server.bind(RestBindings.HTTPS_OPTIONS).to({
+      key: keyPath,
+      cert: certPath,
     });
     await server.start();
-    const host = server.getSync(RestBindings.HOST);
-    const port = server.getSync(RestBindings.PORT);
-    const res = await httpsGetAsync(server.url!);
+    const serverUrl = server.getSync(RestBindings.URL);
+    const res = await httpsGetAsync(serverUrl);
     expect(res.statusCode).to.equal(200);
+    await server.stop();
   });
 
   async function givenAServer(options?: ApplicationConfig) {
@@ -330,15 +337,22 @@ servers:
     return await app.getServer(RestServer);
   }
 
+  function dummyRequestHandler(handler: {
+    request: IncomingMessage;
+    response: ServerResponse;
+  }) {
+    const {response} = handler;
+    response.write('Hello');
+    response.end();
+  }
+
   function httpsGetAsync(urlString: string): Promise<IncomingMessage> {
-    const agentOptions = {
-      agent: new https.Agent({
-        rejectUnauthorized: false,
-      }),
-    };
+    const agent = new https.Agent({
+      rejectUnauthorized: false,
+    });
 
     const urlOptions = url.parse(urlString);
-    const options = {...agentOptions, ...urlOptions};
+    const options = {agent, ...urlOptions};
 
     return new Promise((resolve, reject) => {
       https.get(options, resolve).on('error', reject);
