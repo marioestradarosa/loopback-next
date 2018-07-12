@@ -153,7 +153,7 @@ export class DefaultCrudRepository<T extends Entity, ID>
   protected _createHasManyRepositoryFactoryFor<Target extends Entity, TargetID>(
     relationName: string,
     targetRepo: EntityCrudRepository<Target, TargetID>,
-  ): HasManyRepositoryFactory<Target, ID> {
+  ): HasManyRepositoryFactory<ID, Target> {
     const meta = this.entityClass.definition.relations[relationName];
     return createHasManyRepositoryFactory<ID, Target, TargetID>(
       meta as HasManyDefinition,
