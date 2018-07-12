@@ -2,7 +2,7 @@
 // Node module: @loopback/http-server
 // This file is licensed under the MIT License.
 // License text available at https://opensource.org/licenses/MIT
-import {HttpServer, HttpOptions, HttpsOptions, HttpServerOptions} from '../../';
+import {HttpServer, HttpServerOptions} from '../../';
 import {supertest, expect} from '@loopback/testlab';
 import * as makeRequest from 'request-promise-native';
 import {ServerRequest, ServerResponse, get, IncomingMessage} from 'http';
@@ -139,7 +139,7 @@ describe('HttpServer (integration)', () => {
     const anotherServer = new HttpServer(dummyRequestHandler, {
       port: port,
     });
-    expect(anotherServer.start()).to.be.rejectedWith(/EADDRINUSE/);
+    await expect(anotherServer.start()).to.be.rejectedWith(/EADDRINUSE/);
   });
 
   it('supports HTTPS protocol with key and certificate files', async () => {

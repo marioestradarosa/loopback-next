@@ -319,13 +319,16 @@ servers:
       },
     });
     server.handler(dummyRequestHandler);
-    expect(server.start()).to.be.rejected();
+    await server.start();
+    let serverUrl = server.getSync(RestBindings.URL);
+    await expect(httpsGetAsync(serverUrl)).to.be.rejectedWith(/EPROTO/);
+    await server.stop();
     await server.bind(RestBindings.HTTPS_OPTIONS).to({
-      key: keyPath,
-      cert: certPath,
+      key: fs.readFileSync(keyPath),
+      cert: fs.readFileSync(certPath),
     });
     await server.start();
-    const serverUrl = server.getSync(RestBindings.URL);
+    serverUrl = server.getSync(RestBindings.URL);
     const res = await httpsGetAsync(serverUrl);
     expect(res.statusCode).to.equal(200);
     await server.stop();

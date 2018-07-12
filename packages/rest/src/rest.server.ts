@@ -17,11 +17,7 @@ import {
 } from './router/routing-table';
 import {OpenApiSpec, OperationObject} from '@loopback/openapi-v3-types';
 import {ServerRequest, ServerResponse} from 'http';
-import {
-  HttpServer,
-  HttpServerOptions,
-  HttpProtocol,
-} from '@loopback/http-server';
+import {HttpServer, HttpServerOptions} from '@loopback/http-server';
 import * as cors from 'cors';
 import {Application, CoreBindings, Server} from '@loopback/core';
 import {getControllerSpec} from '@loopback/openapi-v3';
@@ -39,7 +35,6 @@ import {
 import {RestBindings} from './keys';
 import {RequestContext} from './request-context';
 import * as express from 'express';
-import * as https from 'https';
 
 const debug = require('debug')('loopback:rest:server');
 
@@ -592,12 +587,10 @@ export class RestServer extends Context implements Server, HttpServerLike {
     // of API spec, controllers and routes at startup time.
     this._setupHandlerIfNeeded();
 
-    const port = await this.get<number | undefined>(RestBindings.PORT);
-    const host = await this.get<string | undefined>(RestBindings.HOST);
-    const protocol = await this.get<HttpProtocol>(RestBindings.PROTOCOL);
-    const httpsOptions = await this.get<https.ServerOptions>(
-      RestBindings.HTTPS_OPTIONS,
-    );
+    const port = await this.get(RestBindings.PORT);
+    const host = await this.get(RestBindings.HOST);
+    const protocol = await this.get(RestBindings.PROTOCOL);
+    const httpsOptions = await this.get(RestBindings.HTTPS_OPTIONS);
 
     const serverOptions = {
       port: port,
@@ -605,9 +598,8 @@ export class RestServer extends Context implements Server, HttpServerLike {
     };
 
     if (protocol === 'https') {
-      Object.assign(serverOptions, httpsOptions);
+      Object.assign(serverOptions, {protocol: 'https'}, httpsOptions);
     }
-
     this._httpServer = new HttpServer(this.requestHandler, serverOptions);
 
     await this._httpServer.start();
@@ -650,7 +642,7 @@ export class RestServer extends Context implements Server, HttpServerLike {
  * Valid configuration for the RestServer constructor.
  *
  * @export
- * @type RestServerConfig
+ * @interface RestServerConfig
  */
 export interface RestServerOptions {
   cors?: cors.CorsOptions;
