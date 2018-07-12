@@ -132,7 +132,7 @@ export class DefaultCrudRepository<T extends Entity, ID>
    *   Customer,
    *   typeof Customer.prototype.id
    * > {
-   *   public orders: HasManyRepositoryFactory<Order, typeof Order.prototype.id>;
+   *   public orders: HasManyRepositoryFactory<typeof Customer.prototype.id, Order>;
    *
    *   constructor(
    *     protected db: juggler.DataSource,

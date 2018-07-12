@@ -16,15 +16,15 @@ foreign key constraint on the target model which usually references a primary
 key on the source model. This relation indicates that each instance of the
 declaring or source model has zero or more instances of the target model. For
 example, in an application with customers and orders, a customer can have many
-orders, as illustrated in the diagram below.
+orders as illustrated in the diagram below.
 
 ![hasMany relation illustration](./imgs/hasMany-relation-example.png)
 
-The target model, **Order**, has a property, **customerId**, as the foreign key
-to reference the declaring model **Customer's** primary key **id**.
+The diagram shows target model **Order** has a property **customerId** as the
+foreign key to reference the declaring model **Customer's** primary key **id**.
 
-To add a `hasMany` relation to your LoopBack application, you need to perform
-the following steps:
+To add a `hasMany` relation to your LoopBack application and expose its related
+routes, you need to perform the following steps:
 
 1.  Add a property to your model to access related model instances.
 2.  Modify the source model repository class to provide access to a constrained
@@ -77,8 +77,9 @@ as an array of the target model instances.
 
 The decorated property name is used as the relation name and stored as part of
 the source model definition's relation metadata. The property type metadata is
-also preserved as an array of type `Order` as part of the decoration. Another
-usage of the decorator with a custom foreign key name for the above example is
+also preserved as an array of type `Order` as part of the decoration.
+
+A usage of the decorator with a custom foreign key name for the above example is
 as follows:
 
 ```ts
@@ -125,7 +126,7 @@ class CustomerRepository extends DefaultCrudRepository<
   Customer,
   typeof Customer.prototype.id
 > {
-  public orders: HasManyRepositoryFactory<Order, typeof Customer.prototype.id>;
+  public orders: HasManyRepositoryFactory<typeof Customer.prototype.id, Order>;
   constructor(
     @inject('datasources.db') protected db: juggler.DataSource,
     @repository(OrderRepository) orderRepository: OrderRepository,
@@ -144,15 +145,15 @@ factory `orders` for instances of `customerRepository`:
 
 - `create` for creating a target model instance belonging to customer model
   instance
-  ([API Docs](https://apidocs.strongloop.com/@loopback%2fdocs/repository.html#DefaultHasManyEntityCrudRepository.prototype.create))
+  ([API Docs](https://apidocs.strongloop.com/@loopback%2fdocs/repository.html#HasManyRepository.prototype.create))
 - `find` finding target model instance(s) belonging to customer model instance
-  ([API Docs](https://apidocs.strongloop.com/@loopback%2fdocs/repository.html#DefaultHasManyEntityCrudRepository.prototype.find))
+  ([API Docs](https://apidocs.strongloop.com/@loopback%2fdocs/repository.html#HasManyRepository.prototype.find))
 - `delete` for deleting target model instance(s) belonging to customer model
   instance
-  ([API Docs](https://apidocs.strongloop.com/@loopback%2fdocs/repository.html#DefaultHasManyEntityCrudRepository.prototype.delete))
+  ([API Docs](https://apidocs.strongloop.com/@loopback%2fdocs/repository.html#HasManyRepository.prototype.delete))
 - `patch` for patching target model instance(s) belonging to customer model
   instance
-  ([API Docs](https://apidocs.strongloop.com/@loopback%2fdocs/repository.html#DefaultHasManyEntityCrudRepository.prototype.patch))
+  ([API Docs](https://apidocs.strongloop.com/@loopback%2fdocs/repository.html#HasManyRepository.prototype.patch))
 
 ## Using hasMany constrained repository in a controller
 
@@ -170,7 +171,7 @@ content="src/controllers/customer-orders.controller.ts" %}
 
 ```ts
 import {post, param, requestBody} from '@loopback/rest';
-import {customerRepository} from '../repositories/customer.repository.ts';
+import {customerRepository} from '../repositories/';
 import {Customer, Order} from '../models/';
 
 export class CustomerOrdersController {
@@ -190,13 +191,13 @@ export class CustomerOrdersController {
 ```
 
 In LoopBack 3, the REST APIs for relations were exposed using static methods
-with the name following the pattern `__{methodName}__{relationName}__`, for
-example `Customer.__find__orders`. We recommend to create a new controller for
-each relation in LoopBack 4 for two reasons. First, it keeps controller classes
-smaller. Second, it creates a logical separation of ordinary repositories and
-relational repositories and thus the controllers which use them. Therefore, as
-shown above, don't add order-related methods to `CustomerController`, but
-instead create a new `CustomerOrdersController` class for them.
+with the name following the pattern `__{methodName}__{relationName}__` (for e.g.
+`Customer.__find__orders`). We recommend to create a new controller for each
+relation in LoopBack 4. First, it keeps controller classes smaller. Second, it
+creates a logical separation of ordinary repositories and relational
+repositories and thus the controllers which use them. Therefore, as shown above,
+don't add order-related methods to `CustomerController`, but instead create a
+new `CustomerOrdersController` class for them.
 
 {% include note.html content="
 The type of `orderData` above will possibly change to `Partial<Order>` to exclude
